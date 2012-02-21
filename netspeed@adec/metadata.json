@@ -1,0 +1,6 @@
+{
+"uuid": "netspeed@adec",
+"name": "Network speed monitor",
+"description": "A simple network speed monitor for the panel.",
+"icon": "network-workgroup"
+}
