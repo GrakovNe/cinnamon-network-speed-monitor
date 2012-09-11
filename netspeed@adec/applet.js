@@ -2,12 +2,14 @@ const Applet = imports.ui.applet;
 const Cinnamon = imports.gi.Cinnamon;
 const GLib = imports.gi.GLib;
 const GTop = imports.gi.GTop;
+const Gio = imports.gi.Gio;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const PopupMenu = imports.ui.popupMenu;
 const St = imports.gi.St;
 const NetworkManager = imports.gi.NetworkManager;
 const Main = imports.ui.main;
+const SettingsFile = GLib.build_filenamev([global.userdatadir, 'applets/netspeed@adec/settings.json']);
 
 function MyMenu(launcher, orientation) {
     this._init(launcher, orientation);
@@ -36,29 +38,24 @@ MyApplet.prototype = {
 			this.UPDATEINTERVAL = 1000; // <-- UPDATE INTERVAL (in milliseconds)
 			this.monitoredInterfaceName = null;
 			
-			// Looks for a network interface to monitor
-			let interfaces = this.getInterfaces();
-			if(interfaces!=null) {
-				let first = true;
-				for(let i=0; i<interfaces.length; i++) {
-					let name = interfaces[i].get_iface();
-					if(first) { this.monitoredInterfaceName = name; first=false; }
-					if (interfaces[i].state == NetworkManager.DeviceState.ACTIVATED) {
-						this.monitoredInterfaceName = name;
-					}
-				}
-			}
+			this.loadSettings();
 			
 			this.menuManager = new PopupMenu.PopupMenuManager(this);
             this.menu = new MyMenu(this, orientation);
             this.menuManager.addMenu(this.menu);
 			this.makeMenu();
+			this.buildContextMenu();
 
 			this.gtop = new GTop.glibtop_netload();
 			this.timeOld = GLib.get_monotonic_time();
 			this.upOld = 0;
 			this.downOld = 0;
-			if(this.monitoredInterfaceName!=null) this.setMonitoredInterface(this.monitoredInterfaceName);
+			
+			let lastUsedInterface = this.settings.lastUsedInterface;
+			if(this.isInterfaceAvailable(lastUsedInterface)) {
+				this.setMonitoredInterface(lastUsedInterface);
+			}
+			
 			this.update();
 		}
 		catch (e) {
@@ -70,26 +67,48 @@ MyApplet.prototype = {
 		return imports.gi.NMClient.Client.new().get_devices();
 	},
 	
+	isInterfaceAvailable: function(name) {
+		let interfaces = this.getInterfaces();
+		if(interfaces!=null) {
+			for(let i=0; i<interfaces.length; i++) {
+				let iname = interfaces[i].get_iface();
+				if(iname==name && interfaces[i].state == NetworkManager.DeviceState.ACTIVATED) {
+					return true;
+				}
+			}
+		}
+		return false;
+	},
+	
 	makeMenu: function() {
-		this.menu.removeAll();		
-		
-		this.menu.addMenuItem(new PopupMenu.PopupMenuItem("Select the interface to be monitored:", { reactive: false }));
+		this.menu.removeAll();
+		if(this.monitoredInterfaceName!=null) {
+			//this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+			this.menuitemInfo = new PopupMenu.PopupMenuItem("info", { reactive: false });
+			this.menu.addMenuItem(this.menuitemInfo);
+			this.menuitemInfo.label.text = this.monitoredInterfaceName+" - Downloaded: "+this.formatSentReceived(this.downOld)+" - Uploaded: "+this.formatSentReceived(this.upOld);
+		} else {
+			this.menuitemInfo = new PopupMenu.PopupMenuItem("No network monitored. Please select one right-clicking the applet.", { reactive: false });
+			this.menu.addMenuItem(this.menuitemInfo);
+		}
+	},
+	
+	buildContextMenu: function() {
+		this._applet_context_menu.removeAll();
+		this._applet_context_menu.addMenuItem(new PopupMenu.PopupMenuItem("Select the interface to be monitored:", { reactive: false }));
 		
 		let interfaces = this.getInterfaces();
 		if(interfaces!=null) {
 			for(let i=0; i<interfaces.length; i++) {
 				let name = interfaces[i].get_iface();
 				let menuitem = new PopupMenu.PopupMenuItem(name);
-				menuitem.connect('activate', Lang.bind(this, function() { this.setMonitoredInterface(name); }));
-				this.menu.addMenuItem(menuitem);
+				menuitem.connect('activate', Lang.bind(this, function() {
+					this.settings.lastUsedInterface = name;
+					this.saveSettings();
+					this.setMonitoredInterface(name);
+				}));
+				this._applet_context_menu.addMenuItem(menuitem);
 			}
-		}
-		
-		if(this.monitoredInterfaceName!=null) {
-			this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-			this.menuitemInfo = new PopupMenu.PopupMenuItem("info", { reactive: false });
-			this.menu.addMenuItem(this.menuitemInfo);
-			this.menuitemInfo.label.text = this.monitoredInterfaceName+" - Downloaded: "+this.formatSentReceived(this.downOld)+" - Uploaded: "+this.formatSentReceived(this.upOld);
 		}
 	},
 	
@@ -136,6 +155,24 @@ MyApplet.prototype = {
 	formatSentReceived: function(value) {
 		if(value<1048576) return Math.round(value/1024)+" KB";
 		else return Math.round((value/1048576)*10)/10+" MB";
+	},
+	
+	loadSettings: function() {
+		try {
+			this.settings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(SettingsFile));
+		} catch(e) {
+			global.logError(e);
+			global.logError("Settings file not found. Using default values.");
+			this.settings = JSON.parse("{\"lastUsedInterface\":\"eth0\"}");
+		}
+	},
+	
+	saveSettings: function() {
+		let file = Gio.file_new_for_path(SettingsFile);
+		let outputFile = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
+		let out = Gio.BufferedOutputStream.new_sized(outputFile, 1024);
+		Cinnamon.write_string_to_stream(out, JSON.stringify(this.settings));
+		out.close(null);
 	}
 };
 
