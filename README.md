@@ -16,10 +16,10 @@ Installation
 Usage
 -----
 
-The applet automatically monitors the first active network interface found at Cinnamon startup. You can change the monitored interface clicking on the applet.
+The applet automatically monitors the first active network interface found at Cinnamon startup. You can change the monitored interface right-clicking on the applet.
 
 
 Test
 ----
 
-The script was tested with Cinnamon 1.3 on Mint 12 and Ubuntu 11.10.
+The script was tested with Cinnamon 1.5.7 on Mint 13.
