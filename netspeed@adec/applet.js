@@ -9,7 +9,6 @@ const PopupMenu = imports.ui.popupMenu;
 const St = imports.gi.St;
 const NetworkManager = imports.gi.NetworkManager;
 const Main = imports.ui.main;
-const SettingsFile = GLib.build_filenamev([global.userdatadir, 'applets/netspeed@adec/settings.json']);
 
 function MyMenu(launcher, orientation) {
     this._init(launcher, orientation);
@@ -24,18 +23,19 @@ MyMenu.prototype = {
     }
 }
 
-function MyApplet(orientation) {
-	this._init(orientation);
+function MyApplet(metadata, orientation) {
+	this._init(metadata, orientation);
 };
 
 MyApplet.prototype = {
 	__proto__: Applet.TextApplet.prototype,
 
-    _init: function(orientation) {
+    _init: function(metadata, orientation) {
         Applet.TextApplet.prototype._init.call(this, orientation);
+        this.path = metadata.path;
+        this.settingsFile = this.path+"/settings.json";
 
 		try {
-			this.UPDATEINTERVAL = 1000; // <-- UPDATE INTERVAL (in milliseconds)
 			this.monitoredInterfaceName = null;
 			
 			this.loadSettings();
@@ -56,6 +56,7 @@ MyApplet.prototype = {
 				this.setMonitoredInterface(lastUsedInterface);
 			}
 			
+			//this._applet_label.set_width(150);
 			this.update();
 		}
 		catch (e) {
@@ -83,7 +84,6 @@ MyApplet.prototype = {
 	makeMenu: function() {
 		this.menu.removeAll();
 		if(this.monitoredInterfaceName!=null) {
-			//this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 			this.menuitemInfo = new PopupMenu.PopupMenuItem("info", { reactive: false });
 			this.menu.addMenuItem(this.menuitemInfo);
 			this.menuitemInfo.label.text = this.monitoredInterfaceName+" - Downloaded: "+this.formatSentReceived(this.downOld)+" - Uploaded: "+this.formatSentReceived(this.upOld);
@@ -110,6 +110,20 @@ MyApplet.prototype = {
 				this._applet_context_menu.addMenuItem(menuitem);
 			}
 		}
+		
+		this._applet_context_menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+		let menuitem = new PopupMenu.PopupMenuItem("Settings");
+		menuitem.connect('activate', Lang.bind(this, this.openSettings));
+		this._applet_context_menu.addMenuItem(menuitem);
+	},
+	
+	openSettings: function() {
+		[success, pid, stdin, stdout, stderr] = GLib.spawn_async_with_pipes(this.path, ["/usr/bin/gjs","settings.js",this.settingsFile], null, GLib.SpawnFlags.DO_NOT_REAP_CHILD, null);
+		GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, Lang.bind(this, this.onSettingsWindowClosed));
+	},
+	
+	onSettingsWindowClosed: function(pid, status, requestObj) {
+		this.loadSettings();
 	},
 	
 	setMonitoredInterface: function(name) {
@@ -130,13 +144,13 @@ MyApplet.prototype = {
 	update: function() {
 		if(this.monitoredInterfaceName!=null) {
 			let timeNow = GLib.get_monotonic_time();
-			let deltaTime = (timeNow-this.timeOld)/1000000;
+			let deltaTime = (timeNow-this.timeOld)/(this.settings.refreshInterval*1000000);
 			
 			GTop.glibtop_get_netload(this.gtop, this.monitoredInterfaceName);
 			let upNow = this.gtop.bytes_out;
 			let downNow = this.gtop.bytes_in;
 			
-			this.set_applet_label("D: "+this.formatSpeed(downNow-this.downOld)+" U: "+this.formatSpeed(upNow-this.upOld));
+			this.set_applet_label("D: "+this.formatSpeed(downNow-this.downOld)+"  U: "+this.formatSpeed(upNow-this.upOld));
 					
 			this.upOld = upNow;
 			this.downOld = downNow;
@@ -145,11 +159,13 @@ MyApplet.prototype = {
 			this.set_applet_label("No net!");
 		}
 
-		Mainloop.timeout_add(this.UPDATEINTERVAL, Lang.bind(this, this.update));
+		Mainloop.timeout_add(this.settings.refreshInterval*1000, Lang.bind(this, this.update));
 	},
 	
 	formatSpeed: function(value) {
-		return Math.round(value/1024)+" KB/s";
+		let decimalAdjust = Math.pow(10, this.settings.decimalsToShow);
+		if(value<1048576) return (Math.round(value/1024*decimalAdjust)/decimalAdjust) + " KB/s";
+		else return (Math.round(value/1048576*decimalAdjust)/decimalAdjust) + " MB/s";
 	},
 	
 	formatSentReceived: function(value) {
@@ -159,16 +175,16 @@ MyApplet.prototype = {
 	
 	loadSettings: function() {
 		try {
-			this.settings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(SettingsFile));
+			this.settings = JSON.parse(Cinnamon.get_file_contents_utf8_sync(this.settingsFile));
 		} catch(e) {
 			global.logError(e);
 			global.logError("Settings file not found. Using default values.");
-			this.settings = JSON.parse("{\"lastUsedInterface\":\"eth0\"}");
+			this.settings = JSON.parse('{"lastUsedInterface":"eth0","refreshInterval":1,"decimalsToShow":0}');
 		}
 	},
 	
 	saveSettings: function() {
-		let file = Gio.file_new_for_path(SettingsFile);
+		let file = Gio.file_new_for_path(this.settingsFile);
 		let outputFile = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
 		let out = Gio.BufferedOutputStream.new_sized(outputFile, 1024);
 		Cinnamon.write_string_to_stream(out, JSON.stringify(this.settings));
@@ -177,6 +193,6 @@ MyApplet.prototype = {
 };
 
 function main(metadata, orientation) {
-	let myApplet = new MyApplet(orientation);
+	let myApplet = new MyApplet(metadata, orientation);
 	return myApplet;
 }
