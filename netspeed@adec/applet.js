@@ -144,13 +144,15 @@ MyApplet.prototype = {
 	update: function() {
 		if(this.monitoredInterfaceName!=null) {
 			let timeNow = GLib.get_monotonic_time();
-			let deltaTime = (timeNow-this.timeOld)/(this.settings.refreshInterval*1000000);
+			let deltaTime = (timeNow-this.timeOld)/1000000;
 			
 			GTop.glibtop_get_netload(this.gtop, this.monitoredInterfaceName);
 			let upNow = this.gtop.bytes_out;
 			let downNow = this.gtop.bytes_in;
 			
-			this.set_applet_label("D: "+this.formatSpeed(downNow-this.downOld)+"  U: "+this.formatSpeed(upNow-this.upOld));
+			if(deltaTime!=0) {
+				this.set_applet_label("D: "+this.formatSpeed((downNow-this.downOld)/deltaTime)+"  U: "+this.formatSpeed((upNow-this.upOld)/deltaTime));
+			}
 					
 			this.upOld = upNow;
 			this.downOld = downNow;
