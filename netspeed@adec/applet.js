@@ -28,12 +28,17 @@ function MyApplet(metadata, orientation) {
 };
 
 MyApplet.prototype = {
-	__proto__: Applet.TextApplet.prototype,
+	__proto__: Applet.Applet.prototype,
 
     _init: function(metadata, orientation) {
-        Applet.TextApplet.prototype._init.call(this, orientation);
+        Applet.Applet.prototype._init.call(this, orientation);
         this.path = metadata.path;
         this.settingsFile = this.path+"/settings.json";
+        
+        this.labelDownload = new St.Label({ reactive: true, track_hover: true, style_class: "netspeed-applet"});
+        this.labelUpload = new St.Label({ reactive: true, track_hover: true, style_class: "netspeed-applet"});
+        this.actor.add(this.labelDownload, {y_align: St.Align.MIDDLE, y_fill: false});
+        this.actor.add(this.labelUpload, {y_align: St.Align.MIDDLE, y_fill: false});
 
 		try {
 			this.monitoredInterfaceName = null;
@@ -56,7 +61,6 @@ MyApplet.prototype = {
 				this.setMonitoredInterface(lastUsedInterface);
 			}
 			
-			//this._applet_label.set_width(150);
 			this.update();
 		}
 		catch (e) {
@@ -151,16 +155,16 @@ MyApplet.prototype = {
 			let downNow = this.gtop.bytes_in;
 			
 			if(deltaTime!=0) {
-				this.set_applet_label("D: "+this.formatSpeed((downNow-this.downOld)/deltaTime)+"  U: "+this.formatSpeed((upNow-this.upOld)/deltaTime));
+				this.labelDownload.set_text("D: "+this.formatSpeed((downNow-this.downOld)/deltaTime));
+				this.labelUpload.set_text("U: "+this.formatSpeed((upNow-this.upOld)/deltaTime));
 			}
 					
 			this.upOld = upNow;
 			this.downOld = downNow;
 			this.timeOld = timeNow;
 		} else {
-			this.set_applet_label("No net!");
+			this.labelDownload.set_text("No net!");
 		}
-
 		Mainloop.timeout_add(this.settings.refreshInterval*1000, Lang.bind(this, this.update));
 	},
 	

@@ -19,7 +19,13 @@ Usage
 The applet automatically monitors the first active network interface found at Cinnamon startup. You can change the monitored interface right-clicking on the applet.
 
 
+Customization
+-------------
+
+The applet is now styled through the `stylesheet.css` file. You can modify, for example, the alignment of the text by changing the "`text-align`" property.
+
+
 Test
 ----
 
-The script was tested with Cinnamon 1.5.7 on Mint 13.
+The script was tested with Cinnamon 1.7.2 on Ubuntu 12.10.
