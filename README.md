@@ -3,6 +3,8 @@ Network speed monitor
 
 Simple Cinnamon applet to display current network speed.
 
+NOTICE: This project has been discontinued. Any developer who wants to fork it and continue development is welcome!
+
 
 Installation
 ------------
