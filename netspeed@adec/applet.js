@@ -36,9 +36,9 @@ MyApplet.prototype = {
         this.settingsFile = this.path+"/settings.json";
         
         this.labelDownload = new St.Label({ reactive: true, track_hover: true, style_class: "netspeed-applet"});
-        this.labelUpload = new St.Label({ reactive: true, track_hover: true, style_class: "netspeed-applet"});
+        //this.labelUpload = new St.Label({ reactive: true, track_hover: true, style_class: "netspeed-applet"});
         this.actor.add(this.labelDownload, {y_align: St.Align.MIDDLE, y_fill: false});
-        this.actor.add(this.labelUpload, {y_align: St.Align.MIDDLE, y_fill: false});
+        //this.actor.add(this.labelUpload, {y_align: St.Align.MIDDLE, y_fill: false});
 
 		try {
 			this.monitoredInterfaceName = null;
@@ -155,8 +155,9 @@ MyApplet.prototype = {
 			let downNow = this.gtop.bytes_in;
 			
 			if(deltaTime!=0) {
-				this.labelDownload.set_text("D: "+this.formatSpeed((downNow-this.downOld)/deltaTime));
-				this.labelUpload.set_text("U: "+this.formatSpeed((upNow-this.upOld)/deltaTime));
+				this.labelDownload.set_text(this.formatSpeed(((downNow-this.downOld) + (upNow-this.upOld))/deltaTime));
+				//this.labelDownload.set_text("D!!!: "+this.formatSpeed((downNow-this.downOld)/deltaTime));
+				//this.labelUpload.set_text("U: "+this.formatSpeed((upNow-this.upOld)/deltaTime));
 			}
 					
 			this.upOld = upNow;

@@ -1,6 +1,7 @@
 {
-"uuid": "netspeed@adec",
-"name": "Network speed monitor",
-"description": "A simple network speed monitor for the panel.",
-"icon": "network-workgroup"
+    "dangerous": true, 
+    "description": "A simple network speed monitor for the panel.", 
+    "icon": "network-workgroup", 
+    "uuid": "netspeed@adec", 
+    "name": "Network speed monitor"
 }
